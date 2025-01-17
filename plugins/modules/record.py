@@ -38,7 +38,6 @@ options:
         default: 'A'
         choices:
             - 'A'
-            - 'AAAA'
     value:
         description: Name of group to associate with.
         required: false
@@ -165,7 +164,7 @@ def api_create_record(module: AnsibleModule, result: dict, zone_id: int):
     result["changed"] = True
     result["id"] = json["id"]
     result["hostname"] = json["hostname"]
-    result["value"] = json["content"]
+    result["value"] = json["ipv4Address"]
     module.exit_json(**result)
 
 
@@ -202,7 +201,7 @@ def api_update_record(
     result["changed"] = True
     result["id"] = json["id"]
     result["hostname"] = json["hostname"]
-    result["value"] = json["content"]
+    result["value"] = json["ipv4Address"]
     module.exit_json(**result)
 
 
@@ -234,12 +233,12 @@ def create_or_update_record(module: AnsibleModule, result: dict, zone_id: int):
     if record is None:
         api_create_record(module, result, zone_id)
 
-    if record["content"] != module.params["value"]:
+    if record["ipv4Address"] != module.params["value"]:
         api_update_record(module, result, zone_id, record["id"])
 
     result["id"] = json["id"]
     result["hostname"] = json["hostname"]
-    result["value"] = json["content"]
+    result["value"] = json["ipv4Address"]
     module.exit_json(**result)
 
 
@@ -259,7 +258,7 @@ def run_module():
         zone=dict(type="str", required=True),
         node_name=dict(type="str", required=True),
         value=dict(type="str", required=False),
-        type=dict(type="str", required=False, default="A", choices=["A", "AAAA"]),
+        type=dict(type="str", required=False, default="A", choices=["A"]),
         group=dict(type="str", required=False),
         state=dict(
             type="str", required=False, default="present", choices=["present", "absent"]

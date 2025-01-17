@@ -8,7 +8,7 @@ __metaclass__ = type
 
 DOCUMENTATION = r"""
 ---
-module: user
+module: record
 
 short_description: Module to DNS records using DynuDNS api.
 
@@ -39,6 +39,10 @@ options:
         choices:
             - 'A'
             - 'AAAA'
+    value:
+        description: Name of group to associate with.
+        required: false
+        type: str
     group:
         description: Name of group to associate with.
         required: false
@@ -82,23 +86,12 @@ value:
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.urls import fetch_url
-from ansible.module_utils.dynu_dns import api_get_zone
-
-
-base_url = "https://api.dynu.com/v2/dns"
-json_mime = "application/json"
-
-
-def get_headers(module: AnsibleModule) -> dict:
-    return {"Accept": json_mime, "API-Key": module.params["api_key"]}
-
-
-def post_headers(module: AnsibleModule) -> dict:
-    return {
-        "Accept": json_mime,
-        "Content-Type": json_mime,
-        "API-Key": module.params["api_key"],
-    }
+from ansible_collections.gsbtech.dynu_dns.plugins.module_utils.dynu_dns import (
+    api_get_zone,
+    get_headers,
+    post_headers,
+    base_url,
+)
 
 
 def api_get_zone_id(module: AnsibleModule, result: dict) -> int:
@@ -273,7 +266,16 @@ def run_module():
         ),
     )
 
-    module_args_required_if = [("state", "present", ("value"))]
+    module_args_required_if = [
+        (
+            "state",
+            "present",
+            (
+                "value",
+                "type",
+            ),
+        )
+    ]
 
     # seed the result dict in the object
     # we primarily care about changed and state

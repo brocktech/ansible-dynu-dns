@@ -1,6 +1,6 @@
 # Ansible Collection - gsbtech.dynu_dns
 
-*Writted By: Curtis Jones [<cjones2@brocku.ca>](mailto:cjones2@brocku.ca)
+*Written By: Curtis Jones [<cjones2@brocku.ca>](mailto:cjones2@brocku.ca)*
 
 
 ## Modules

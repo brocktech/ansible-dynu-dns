@@ -236,9 +236,9 @@ def create_or_update_record(module: AnsibleModule, result: dict, zone_id: int):
     if record["ipv4Address"] != module.params["value"]:
         api_update_record(module, result, zone_id, record["id"])
 
-    result["id"] = json["id"]
-    result["hostname"] = json["hostname"]
-    result["value"] = json["ipv4Address"]
+    result["id"] = record["id"]
+    result["hostname"] = record["hostname"]
+    result["value"] = record["ipv4Address"]
     module.exit_json(**result)
 
 

@@ -128,6 +128,7 @@ def api_get_record(module: AnsibleModule, result: dict, zone_id: str) -> dict | 
             record
             for record in res_json["dnsRecords"]
             if record["nodeName"] == module.params["node_name"]
+            and record["recordType"] == module.params["type"]
         ),
         None,
     )

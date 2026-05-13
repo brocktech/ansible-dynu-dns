@@ -87,6 +87,8 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.urls import fetch_url
 from ansible_collections.gsbtech.dynu_dns.plugins.module_utils.dynu_dns import (
     api_get_zone,
+    api_get_records,
+    api_remove_record,
     get_headers,
     post_headers,
     base_url,
@@ -103,35 +105,6 @@ def api_get_zone_id(module: AnsibleModule, result: dict) -> int:
         )
 
     return zone["id"]
-
-
-def api_get_record(module: AnsibleModule, result: dict, zone_id: str) -> dict | None:
-    headers = get_headers(module)
-
-    records, records_info = fetch_url(
-        module=module,
-        url=f"{base_url}/{zone_id}/record",
-        headers=headers,
-        method="GET",
-    )
-
-    if records_info["status"] != 200:
-        module.fail_json(
-            msg=f"Failed to list records in {module.params["zone"]}. Error: {records_info["body"]}",
-            **result,
-        )
-
-    res_json = module.from_json(records.read())
-
-    return next(
-        (
-            record
-            for record in res_json["dnsRecords"]
-            if record["nodeName"] == module.params["node_name"]
-            and record["recordType"] == module.params["type"]
-        ),
-        None,
-    )
 
 
 def api_create_record(module: AnsibleModule, result: dict, zone_id: int):
@@ -206,30 +179,8 @@ def api_update_record(
     module.exit_json(**result)
 
 
-def api_remove_record(
-    module: AnsibleModule, result: dict, zone_id: int, record_id: int
-):
-    headers = get_headers(module)
-
-    _, record_delete = fetch_url(
-        module=module,
-        url=f"{base_url}/{zone_id}/record/{record_id}",
-        headers=headers,
-        method="DELETE",
-    )
-
-    if record_delete["status"] != 200:
-        module.fail_json(
-            msg=f"Failed to delete {module.params["node_name"]}.{module.params["zone"]} Error: {record_delete["body"]}",
-            **result,
-        )
-
-    result["changed"] = True
-    module.exit_json(**result)
-
-
 def create_or_update_record(module: AnsibleModule, result: dict, zone_id: int):
-    record = api_get_record(module, result, zone_id)
+    record = next(api_get_records(module, result, zone_id), None)
 
     if record is None:
         api_create_record(module, result, zone_id)
@@ -244,7 +195,7 @@ def create_or_update_record(module: AnsibleModule, result: dict, zone_id: int):
 
 
 def remove_record(module: AnsibleModule, result: dict, zone_id: int):
-    record = api_get_record(module, result, zone_id)
+    record = next(api_get_records(module, result, zone_id), None)
 
     if record is None:
         module.exit_json(**result)

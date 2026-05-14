@@ -90,10 +90,10 @@ def api_create_record(module: AnsibleModule, result: dict, zone_id: int):
             {
                 "nodeName": module.params["node_name"],
                 "recordType": module.params["type"],
-                "ttl": 60,
+                "ttl": module.params["time_to_live"],
                 "state": True,
                 "group": module.params.get("group", ""),
-                "ipv4Address": module.params["value"],
+                "ipv4Address": module.params["ipv4_address"],
             }
         ),
     )
@@ -127,10 +127,10 @@ def api_update_record(
             {
                 "nodeName": module.params["node_name"],
                 "recordType": module.params["type"],
-                "ttl": 60,
+                "ttl": module.params["time_to_live"],
                 "state": True,
                 "group": module.params.get("group", ""),
-                "ipv4Address": module.params["value"],
+                "ipv4Address": module.params["ipv4_address"],
             }
         ),
     )
@@ -156,7 +156,7 @@ def create_or_update_record(module: AnsibleModule, result: dict, zone_id: int):
     if record is None:
         api_create_record(module, result, zone_id)
 
-    if record["ipv4Address"] != module.params["value"]:
+    if record["ipv4Address"] != module.params["ipv4_address"]:
         api_update_record(module, result, zone_id, record["id"])
 
     result["id"] = record["id"]
@@ -180,20 +180,15 @@ def run_module():
         api_key=dict(type="str", required=True, no_log=True),
         zone=dict(type="str", required=True),
         node_name=dict(type="str", required=True),
-        ipv4_address=dict(type="str", required=False),
         group=dict(type="str", required=False),
+        time_to_live=dict(type="int", required=False, default=60),
+        ipv4_address=dict(type="str", required=False),
         state=dict(
             type="str", required=False, default="present", choices=["present", "absent"]
         ),
     )
 
-    module_args_required_if = [
-        (
-            "state",
-            "present",
-            ("ipv4_address"),
-        )
-    ]
+    module_args_required_if = [("state", "present", ["ipv4_address"], True)]
 
     # seed the result dict in the object
     # we primarily care about changed and state

@@ -31,6 +31,11 @@ options:
         description: Name of the DNS node.
         required: true
         type: str
+    time_to_live:
+        description: Time in seconds for record to be kept in DNS caches.
+        required: false
+        default: 60
+        type: int
     group:
         description: Metadata tag to reference rules as a collective.
         required: false

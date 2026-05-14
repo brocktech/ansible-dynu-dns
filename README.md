@@ -9,8 +9,6 @@ Currently this collection only provides one thing: a module for managing
 individual A records in Dynu DNS.
 
 
-### gsbtech.dynu_dns.record
+### gsbtech.dynu_dns.a_record
 
-This module will eventually manage all relevant records in Dynu DNS. However
-for now we only require that it manages *"A"* records, so that is it's
-limitation.
+Module to manage __A__ records in Dynu DNS through the API.

@@ -101,9 +101,11 @@ def api_remove_record(
         method="DELETE",
     )
 
+    record_type = f"`{module.params["type"]}` " if "type" in module.params else ""
+
     if record_delete["status"] != 200:
         module.fail_json(
-            msg=f"Failed to delete `{module.params["type"]}` -> {module.params["node_name"]}.{module.params["zone"]} Error: {record_delete["body"]}",
+            msg=f"Failed to delete {record_type}-> {module.params["node_name"]}.{module.params["zone"]} Error: {record_delete["body"]}",
             **result,
         )
 

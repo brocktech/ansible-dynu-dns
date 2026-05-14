@@ -8,7 +8,7 @@ __metaclass__ = type
 
 DOCUMENTATION = r"""
 ---
-module: record
+module: a_record
 
 short_description: Module to DNS records using DynuDNS api.
 
@@ -16,48 +16,18 @@ short_description: Module to DNS records using DynuDNS api.
 # i.e. the version is of the form "2.5.0" and not "2.4".
 version_added: "1.0.0"
 
-description: This module queries the DYNU DNS api nad created DNS records.
+description: This module queries the DYNU DNS api and uses it to create A records.
 
 options:
-    api_key:
-        description: API Key to authenticate to the server.
-        required: true
-        type: str
-    zone:
-        description: DNS name of the zone to create the record under.
-        required: true
-        type: str
-    node_name:
-        description: Name of the DNS node.
-        required: true
-        type: str
-    type:
-        description: DNS Record type.
+    ipv4_address:
+        description: IPv4 Address to be the value for the record.
         required: false
         type: str
-        default: 'A'
-        choices:
-            - 'A'
-    value:
-        description: Name of group to associate with.
-        required: false
-        type: str
-    group:
-        description: Name of group to associate with.
-        required: false
-        type: str
-    state:
-        description: Name of group to associate with.
-        required: false
-        default: 'present'
-        type: str
-        choices:
-            - 'present'
-            - 'absent'
 
 # Specify this value according to your collection
 # in format of namespace.collection.doc_fragment_name
-# extends_documentation_fragment:
+extends_documentation_fragment:
+    - brocktech.dynu_dns.record
 """
 
 EXAMPLES = r"""
@@ -83,6 +53,7 @@ value:
     sample: 192.168.1.1
 """
 
+from ipaddress import ip_address, IPv4Address
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.urls import fetch_url
 from ansible_collections.gsbtech.dynu_dns.plugins.module_utils.dynu_dns import (
@@ -209,8 +180,7 @@ def run_module():
         api_key=dict(type="str", required=True, no_log=True),
         zone=dict(type="str", required=True),
         node_name=dict(type="str", required=True),
-        value=dict(type="str", required=False),
-        type=dict(type="str", required=False, default="A", choices=["A"]),
+        ipv4_address=dict(type="str", required=False),
         group=dict(type="str", required=False),
         state=dict(
             type="str", required=False, default="present", choices=["present", "absent"]
@@ -221,10 +191,7 @@ def run_module():
         (
             "state",
             "present",
-            (
-                "value",
-                "type",
-            ),
+            ("ipv4_address"),
         )
     ]
 
@@ -253,7 +220,25 @@ def run_module():
     if module.check_mode:
         module.exit_json(**result)
 
+    if "ipv4_address" in module.params:
+        invalid_ipv4 = False
+        try:
+            invalid_ipv4 = (
+                type(ip_address(module.params["ipv4_address"])) is not IPv4Address
+            )
+        except ValueError:
+            invalid_ipv4 = True
+
+        if invalid_ipv4:
+            module.fail_json(
+                msg=f"Error: {module.params["ipv4_address"]} is not a valid IPv4 Address",
+                **result,
+            )
+
     zone_id = api_get_zone_id(module, result)
+
+    # always set the record type to A
+    module.params["type"] = "A"
 
     match module.params["state"]:
         case "present":

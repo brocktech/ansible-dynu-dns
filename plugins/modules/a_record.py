@@ -46,8 +46,8 @@ hostname:
     type: str
     returned: when state=present
     sample: www.example.com
-value:
-    description: Content of the record.
+ipv4Address:
+    description: IPv4 Address content of the record.
     type: str
     returned: when state=present
     sample: 192.168.1.1
@@ -56,122 +56,51 @@ value:
 from ipaddress import ip_address, IPv4Address
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.urls import fetch_url
-from ansible_collections.gsbtech.dynu_dns.plugins.module_utils.dynu_dns import (
-    api_get_zone,
+from ansible_collections.brocktech.dynu_dns.plugins.module_utils.dynu_dns import (
     api_get_records,
-    api_remove_record,
-    get_headers,
-    post_headers,
-    base_url,
+    api_post_record,
+    api_delete_record,
 )
 
 
-def api_get_zone_id(module: AnsibleModule, result: dict) -> int:
-    zone = api_get_zone(module, result)
+def create_or_update_record(module: AnsibleModule, result: dict):
+    record = next(api_get_records(module, result), None)
 
-    if zone is None:
-        module.fail_json(
-            msg=f"Could not find zone with name: {module.params["zone"]}",
-            **result,
-        )
-
-    return zone["id"]
-
-
-def api_create_record(module: AnsibleModule, result: dict, zone_id: int):
-    headers = post_headers(module)
-
-    record_create, record_create_info = fetch_url(
-        module=module,
-        url=f"{base_url}/{zone_id}/record",
-        headers=headers,
-        method="POST",
-        data=module.jsonify(
-            {
-                "nodeName": module.params["node_name"],
-                "recordType": module.params["type"],
-                "ttl": module.params["time_to_live"],
-                "state": True,
-                "group": module.params.get("group", ""),
-                "ipv4Address": module.params["ipv4_address"],
-            }
-        ),
-    )
-
-    if record_create_info["status"] != 200:
-        module.fail_json(
-            msg=f"Failed to create {module.params["node_name"]}.{module.params["zone"]} Error: {record_create_info["body"]}",
-            **result,
-        )
-
-    json = module.from_json(record_create.read())
-
-    result["changed"] = True
-    result["id"] = json["id"]
-    result["hostname"] = json["hostname"]
-    result["value"] = json["ipv4Address"]
-    module.exit_json(**result)
-
-
-def api_update_record(
-    module: AnsibleModule, result: dict, zone_id: int, record_id: int
-):
-    headers = post_headers(module)
-
-    record_update, record_update_info = fetch_url(
-        module=module,
-        url=f"{base_url}/{zone_id}/record/{record_id}",
-        headers=headers,
-        method="POST",
-        data=module.jsonify(
-            {
-                "nodeName": module.params["node_name"],
-                "recordType": module.params["type"],
-                "ttl": module.params["time_to_live"],
-                "state": True,
-                "group": module.params.get("group", ""),
-                "ipv4Address": module.params["ipv4_address"],
-            }
-        ),
-    )
-
-    if record_update_info["status"] != 200:
-        module.fail_json(
-            msg=f"Failed to update {module.params["node_name"]}.{module.params["zone"]} Error: {record_update_info["body"]}",
-            **result,
-        )
-
-    json = module.from_json(record_update.read())
-
-    result["changed"] = True
-    result["id"] = json["id"]
-    result["hostname"] = json["hostname"]
-    result["value"] = json["ipv4Address"]
-    module.exit_json(**result)
-
-
-def create_or_update_record(module: AnsibleModule, result: dict, zone_id: int):
-    record = next(api_get_records(module, result, zone_id), None)
+    record_data = {"ipv4Address": module.params["ipv4_address"]}
 
     if record is None:
-        api_create_record(module, result, zone_id)
+        record = api_post_record(
+            module,
+            result,
+            None,
+            record_data,
+        )
+        result["changed"] = True
 
     if record["ipv4Address"] != module.params["ipv4_address"]:
-        api_update_record(module, result, zone_id, record["id"])
+        record = api_post_record(
+            module,
+            result,
+            record["id"],
+            record_data,
+        )
+        result["changed"] = True
 
     result["id"] = record["id"]
     result["hostname"] = record["hostname"]
-    result["value"] = record["ipv4Address"]
+    result["ipv4Address"] = record["ipv4Address"]
     module.exit_json(**result)
 
 
-def remove_record(module: AnsibleModule, result: dict, zone_id: int):
-    record = next(api_get_records(module, result, zone_id), None)
+def remove_record(module: AnsibleModule, result: dict):
+    record = next(api_get_records(module, result), None)
 
     if record is None:
         module.exit_json(**result)
 
-    api_remove_record(module, result, zone_id, record["id"])
+    api_delete_record(module, result, record["id"])
+    result["changed"] = True
+    module.exit_json(**result)
 
 
 def run_module():
@@ -230,16 +159,14 @@ def run_module():
                 **result,
             )
 
-    zone_id = api_get_zone_id(module, result)
-
     # always set the record type to A
     module.params["type"] = "A"
 
     match module.params["state"]:
         case "present":
-            create_or_update_record(module, result, zone_id)
+            create_or_update_record(module, result)
         case "absent":
-            remove_record(module, result, zone_id)
+            remove_record(module, result)
 
 
 def main():

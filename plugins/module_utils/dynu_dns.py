@@ -20,6 +20,26 @@ def post_headers(module: AnsibleModule) -> dict:
     }
 
 
+def validate_dns_hostname(module: AnsibleModule, result: dict, param: str):
+    # dns records are case insensitive so we just make everything lowercase for simplicity.
+    module.params[param] = module.params[param].lower()
+
+    dns_allowed_characters = set(ascii_lowercase + digits + "-")
+
+    labels = module.params[param].split(".")
+
+    if len(labels) < 2:
+        module.fail_json(
+            msg=f"Error: {module.params[param]} is not a valid host name. Hostnames require at least to labels in order to be resolvable.",
+            **result,
+        )
+
+    for label in labels:
+        if not set(label).issubset(dns_allowed_characters):
+            error = f"Error->Param({param}): {module.params[param]} is not a valid host name. Hostnames only allow alpha-numeric characters and the hyphen (-). Invalid label: `{label}`"
+            module.fail_json(msg=error, **result)
+
+
 def validate_ipv4_address(module: AnsibleModule, result: dict, param: str):
     invalid_ipv4 = False
     try:

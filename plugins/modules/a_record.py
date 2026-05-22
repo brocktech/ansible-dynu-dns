@@ -23,6 +23,11 @@ options:
         description: IPv4 Address to be the value for the record.
         required: false
         type: str
+    append:
+        description: Whether to replace all records or append to records.
+        required: false
+        type: bool
+        default: false
 
 # Specify this value according to your collection
 # in format of namespace.collection.doc_fragment_name
@@ -53,20 +58,22 @@ ipv4Address:
     sample: 192.168.1.1
 """
 
-from ipaddress import ip_address, IPv4Address
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.urls import fetch_url
 from ansible_collections.brocktech.dynu_dns.plugins.module_utils.dynu_dns import (
     api_get_records,
     api_post_record,
     api_delete_record,
+    validate_ipv4_address,
 )
 
 
 def create_or_update_record(module: AnsibleModule, result: dict):
-    record = next(api_get_records(module, result), None)
+    records = api_get_records(module, result)
+    record = next(records, None)
 
     record_data = {"ipv4Address": module.params["ipv4_address"]}
+    to_delete = []
 
     if record is None:
         record = api_post_record(
@@ -77,30 +84,70 @@ def create_or_update_record(module: AnsibleModule, result: dict):
         )
         result["changed"] = True
 
-    if record["ipv4Address"] != module.params["ipv4_address"]:
-        record = api_post_record(
-            module,
-            result,
-            record["id"],
-            record_data,
-        )
+    elif (
+        record["ipv4Address"] != module.params["ipv4_address"]
+        and module.params["append"]
+    ):
+        for rc in records:
+            if rc["ipv4Address"] == module.params["ipv4_address"]:
+                record = rc
+
+        if record["ipv4Address"] != module.params["ipv4_address"]:
+            record = api_post_record(
+                module,
+                result,
+                None,
+                record_data,
+            )
+            result["changed"] = True
+
+    elif record["ipv4Address"] != module.params["ipv4_address"]:
+        to_update = record
+
+        for rc in records:
+            if rc["ipv4Address"] == module.params["ipv4_address"]:
+                to_delete.append(to_update)
+                to_update = rc
+            else:
+                to_delete.append(rc)
+
+        if to_update["ipv4Address"] != module.params["ipv4_address"]:
+            record = api_post_record(
+                module,
+                result,
+                to_update["id"],
+                record_data,
+            )
+            result["changed"] = True
+
+    elif not module.params["append"]:
+        to_delete = list(records)
+
+    for rc in to_delete:
+        api_delete_record(module, result, rc["id"])
         result["changed"] = True
 
     result["id"] = record["id"]
     result["hostname"] = record["hostname"]
     result["ipv4Address"] = record["ipv4Address"]
-    module.exit_json(**result)
 
 
 def remove_record(module: AnsibleModule, result: dict):
-    record = next(api_get_records(module, result), None)
+    records = api_get_records(module, result)
 
-    if record is None:
-        module.exit_json(**result)
+    to_delete = (
+        records
+        if "ipv4_address" not in module.params
+        else (
+            record
+            for record in records
+            if record["ipv4Address"] == module.params["ipv4_address"]
+        )
+    )
 
-    api_delete_record(module, result, record["id"])
-    result["changed"] = True
-    module.exit_json(**result)
+    for record in to_delete:
+        api_delete_record(module, result, record["id"])
+        result["changed"] = True
 
 
 def run_module():
@@ -112,6 +159,7 @@ def run_module():
         group=dict(type="str", required=False),
         time_to_live=dict(type="int", required=False, default=60),
         ipv4_address=dict(type="str", required=False),
+        append=dict(type="bool", required=False, default=False),
         state=dict(
             type="str", required=False, default="present", choices=["present", "absent"]
         ),
@@ -145,19 +193,7 @@ def run_module():
         module.exit_json(**result)
 
     if "ipv4_address" in module.params:
-        invalid_ipv4 = False
-        try:
-            invalid_ipv4 = (
-                type(ip_address(module.params["ipv4_address"])) is not IPv4Address
-            )
-        except ValueError:
-            invalid_ipv4 = True
-
-        if invalid_ipv4:
-            module.fail_json(
-                msg=f"Error: {module.params["ipv4_address"]} is not a valid IPv4 Address",
-                **result,
-            )
+        validate_ipv4_address(module, result, "ipv4_address")
 
     # always set the record type to A
     module.params["type"] = "A"
@@ -167,6 +203,8 @@ def run_module():
             create_or_update_record(module, result)
         case "absent":
             remove_record(module, result)
+
+    module.exit_json(**result)
 
 
 def main():

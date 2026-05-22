@@ -2,6 +2,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.urls import fetch_url
 from collections.abc import Generator
 from enum import StrEnum, auto
+from ipaddress import ip_address, IPv4Address
 
 base_url = "https://api.dynu.com/v2/dns"
 json_mime = "application/json"
@@ -17,6 +18,20 @@ def post_headers(module: AnsibleModule) -> dict:
         "Content-Type": json_mime,
         "API-Key": module.params["api_key"],
     }
+
+
+def validate_ipv4_address(module: AnsibleModule, result: dict, param: str):
+    invalid_ipv4 = False
+    try:
+        invalid_ipv4 = type(ip_address(module.params[param])) is not IPv4Address
+    except ValueError:
+        invalid_ipv4 = True
+
+    if invalid_ipv4:
+        module.fail_json(
+            msg=f"Error: {module.params[param]} is not a valid IPv4 Address",
+            **result,
+        )
 
 
 class ApiVerb(StrEnum):

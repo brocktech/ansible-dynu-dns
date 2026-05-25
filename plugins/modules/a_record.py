@@ -137,7 +137,7 @@ def remove_record(module: AnsibleModule, result: dict):
 
     to_delete = (
         records
-        if "ipv4_address" not in module.params
+        if module.params["ipv4_address"] is None
         else (
             record
             for record in records
@@ -192,8 +192,7 @@ def run_module():
     if module.check_mode:
         module.exit_json(**result)
 
-    if "ipv4_address" in module.params:
-        validate_ipv4_address(module, result, "ipv4_address")
+    validate_ipv4_address(module, result, "ipv4_address")
 
     # always set the record type to A
     module.params["type"] = "A"

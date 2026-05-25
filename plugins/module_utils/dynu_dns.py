@@ -41,6 +41,9 @@ def validate_dns_hostname(module: AnsibleModule, result: dict, param: str):
 
 
 def validate_ipv4_address(module: AnsibleModule, result: dict, param: str):
+    if module.params[param] is None:
+        return
+
     invalid_ipv4 = False
     try:
         invalid_ipv4 = type(ip_address(module.params[param])) is not IPv4Address

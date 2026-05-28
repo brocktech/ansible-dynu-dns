@@ -1,0 +1,49 @@
+---
+# This workflow requires a GALAXY_API_KEY secret present in the GitHub
+# repository or organization.
+#
+# See: https://github.com/marketplace/actions/publish-ansible-role-to-galaxy
+# See: https://github.com/ansible/galaxy/issues/46
+
+name: Release
+'on':
+  push:
+    tags:
+      - '*'
+
+defaults:
+  run:
+    working-directory: 'brocktech.dynu_dns'
+
+jobs:
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the codebase.
+        uses: actions/checkout@v6
+        with:
+          path: 'brocktech.dynu_dns'
+
+      - name: Set up Python 3.
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3'  # Can't go to 3.14+ until Ansible 13.x
+
+      - name: Install Ansible.
+        run: pip3 install ansible-core
+
+      - name: Create out directory for release artifacts.
+        run: mkdir out
+
+      - name: Build the collection in the release artifact directory.
+        run: ansible-galaxy collection build --output-path=out
+
+      - name: Create release for new ansible collection version.
+        uses: https://gitea.com/actions/gitea-release-action@v1
+        with:
+          body_path: brocktech.dynu_dns/changelog/${{ gitea.ref_name }}.md
+          files: brocktech.dynu_dns/out/brocktech-dynu_dns-${{ gitea.ref_name }}.tar.gz

@@ -78,12 +78,12 @@ def check_api_error(module: AnsibleModule, result: dict, verb: ApiVerb, info: di
     if status != 200:
         body = info["body"] if "body" in info else "No message provided by API"
         record_type = (
-            f"{module.params["type"]} record" if "type" in module.params else "record"
+            f"{module.params['type']} record" if "type" in module.params else "record"
         )
         target = (
-            f"{module.params["node_name"]}.{module.params["zone"]}"
+            f"{module.params['node_name']}.{module.params['zone']}"
             if verb != ApiVerb.LIST
-            else f"{module.params["zone"]}"
+            else f"{module.params['zone']}"
         )
         plural = "s" if verb is ApiVerb.LIST else ""
         module.fail_json(
@@ -141,7 +141,7 @@ def get_zone_id(module: AnsibleModule, result: dict) -> int:
 
     if zone is None:
         module.fail_json(
-            msg=f"Could not find zone with name: {module.params["zone"]}",
+            msg=f"Could not find zone with name: {module.params['zone']}",
             **result,
         )
 

@@ -3,21 +3,34 @@ from ansible.module_utils.urls import fetch_url
 from collections.abc import Generator
 from enum import StrEnum, auto
 from ipaddress import ip_address, IPv4Address
+from typing import assert_never
 
 base_url = "https://api.dynu.com/v2/dns"
 json_mime = "application/json"
 
 
-def get_headers(module: AnsibleModule) -> dict:
-    return {"Accept": json_mime, "API-Key": module.params["api_key"]}
+class HTTPVerb(StrEnum):
+    """Enum to represent HTTP verbs."""
+
+    GET = auto()
+    """HTTP GET Method -> Read data from the server."""
+
+    POST = auto()
+    """HTTP POST Method -> Create/Update data on the server."""
 
 
-def post_headers(module: AnsibleModule) -> dict:
-    return {
-        "Accept": json_mime,
-        "Content-Type": json_mime,
-        "API-Key": module.params["api_key"],
-    }
+def generate_headers(module: AnsibleModule, verb: HTTPVerb) -> dict:
+    match verb:
+        case HTTPVerb.GET:
+            return {"Accept": json_mime, "API-Key": module.params["api_key"]}
+        case HTTPVerb.POST:
+            return {
+                "Accept": json_mime,
+                "Content-Type": json_mime,
+                "API-Key": module.params["api_key"],
+            }
+        case _:
+            assert_never(verb)
 
 
 def validate_dns_hostname(module: AnsibleModule, result: dict, param: str):
@@ -102,7 +115,7 @@ def api_get_zones(module: AnsibleModule, result: dict) -> list[dict]:
 
     :returns: List of dictionaries that describe the zones available in the account.
     """
-    headers = get_headers(module)
+    headers = generate_headers(module, HTTPVerb.GET)
 
     zones, zones_info = fetch_url(
         module=module,
@@ -152,7 +165,7 @@ def get_zone_id(module: AnsibleModule, result: dict) -> int:
 def api_get_records(module: AnsibleModule, result: dict) -> Generator[dict]:
     zone_id = get_zone_id(module, result)
 
-    headers = get_headers(module)
+    headers = generate_headers(module, HTTPVerb.GET)
 
     records, records_info = fetch_url(
         module=module,
@@ -186,7 +199,7 @@ def api_get_records(module: AnsibleModule, result: dict) -> Generator[dict]:
 def api_delete_record(module: AnsibleModule, result: dict, record_id: int):
     zone_id = get_zone_id(module, result)
 
-    headers = get_headers(module)
+    headers = generate_headers(module, HTTPVerb.GET)
 
     _, record_delete = fetch_url(
         module=module,
@@ -206,7 +219,7 @@ def api_post_record(
 ) -> dict:
     zone_id = get_zone_id(module, result)
 
-    headers = post_headers(module)
+    headers = generate_headers(module, HTTPVerb.POST)
 
     base_record_data = {
         "nodeName": module.params["node_name"],
